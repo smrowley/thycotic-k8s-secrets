@@ -1,0 +1,126 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+labels:
+metadata:
+  name: thycotic
+objects:
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    name: tss-config
+    namespace: ${NAMESPACE}
+  type: Opaque
+  stringData:
+    roles.json: |
+      {
+          "default": {
+              "credentials": {
+                  "username": "${USERNAME}",
+                  "password": "${PASSWORD}"
+              },
+              "serverURL": "${SERVER_URL}"
+          }
+      }
+- apiVersion: certificates.k8s.io/v1
+  kind: CertificateSigningRequest
+  metadata:
+    name: thycotic
+  spec:
+    groups:
+    - system:authenticated
+    request: ${CSR_BASE64}
+    usages:
+    - digital signature
+    - key encipherment
+    - server auth
+    signerName: kubernetes.io/kubelet-serving
+    expirationSeconds: 31536000
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: ${SERVICE}
+    namespace: ${NAMESPACE}
+    labels:
+      app: ${SERVICE}
+  spec:
+    ports:
+      - port: 8543
+        targetPort: 18543
+    selector:
+      app: ${SERVICE}
+    type: ClusterIP
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: ${SERVICE}
+    namespace: default
+    labels:
+      app: ${SERVICE}
+  spec:
+    replicas: ${{INJECTOR_REPLICAS}}
+    selector:
+      matchLabels:
+        app: ${SERVICE}
+    template:
+      metadata:
+        labels:
+          app: ${SERVICE}
+        namespace: ${NAMESPACE}
+      spec:
+        containers:
+          - image: thycotictc/openshift:latest
+            name: ${SERVICE}
+            command: ["tss-injector-svc", "-cert", "tss.crt", "-key", "tss.key", "-roles", "roles.json" ]
+            workingDir: "/config"
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "2048Mi"
+                cpu: "1000m"
+            ports:
+              - containerPort: 18543
+                name: tss
+            volumeMounts:
+            - name: config-volume
+              mountPath: /config
+        volumes:
+          - name: config-volume
+            projected:
+              sources:
+                - secret:
+                    name: tss-config
+                    items:
+                    - key: roles.json
+                      path: roles.json
+                - secret:
+                    name: tss-cert
+                    items:
+                    - key: tls.key
+                      path: tss.key
+                    - key: tls.crt
+                      path: tss.crt
+parameters:
+- description: Username for Thycotic
+  name: USERNAME
+  required: true
+- description: Password for Thycotic
+  name: PASSWORD
+  required: true
+- description: Thycotic server URL
+  name: SERVER_URL
+  required: true
+- description: Cluster Certificate Signing Request
+  name: CSR_BASE64
+  required: true
+- description: Number of replicas for the mutating webhook injector
+  name: INJECTOR_REPLICAS
+  required: true
+  value: "5"
+- description: Service name for the thycotic injector deployment for the mutating webhook
+  name: SERVICE
+  required: true
+- description: Namespace name for the injector deployment for the mutating webhook
+  name: NAMESPACE
+  required: true
