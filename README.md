@@ -25,9 +25,9 @@ Set shell variables to be used for processing the templates:
 USERNAME=<Thycotic Username>
 PASSWORD=<Thycotic Password>
 SERVER_URL=<Thycotic Server URL>
-REPLICAS=<Number of injector replicas>
-SERVICE=<Service name for the injector deployment>
-NAMESPACE=<Namespace for the injector deployment>
+REPLICAS=1
+SERVICE=tss-injector
+NAMESPACE=thycotic
 SIGNER_NODE_NAME=<node name from cluster>
 ```
 
@@ -46,7 +46,7 @@ _Note: Subject CN needs to specify a cluster node for `certificates.k8s.io/v1` o
 Create the project for Thycotic:
 
 ```
-oc new-project thycotic
+oc new-project $NAMESPACE
 ```
 
 Process the template to create resources:
@@ -78,7 +78,7 @@ oc create secret tls tss-cert \
   --cert=/tmp/server-cert.crt \
   --key=/tmp/server-key.pem
 
-oc rollout restart deployment thycotic
+oc rollout restart deployment $SERVICE -n $NAMESPACE
 ```
 
 Create the webhook:
