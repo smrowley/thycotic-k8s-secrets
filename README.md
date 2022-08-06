@@ -1,21 +1,6 @@
-# Bootstrap a Managed Cluster
+# Bootstrap Secrets Management
 
-Catalog of gitops configurations:
-- https://github.com/redhat-cop/gitops-catalog
-
-## Install GitOps
-
-The GitOps operator needs to be installed in order to delegate cluster bootstrapping from the hub cluster to the managed cluster. This will enabling scaling of large numbers of clusters, reducing the overall load on the hub cluster GitOps instance.
-
-The following command creates the subscription for the GitOps operator, which installs it and creates an ArgoCD instance in the `openshift-gitops` namespace.
-
-```
-oc apply -f gitops-install.yaml
-```
-
-## Bootstrap Secrets Management
-
-### Thycotic Secret Server
+## Thycotic Secret Server
 
 The following steps are intended for the use of Thycotic Secret Server with a mutating admission webhook on the Openshift cluster. This deployment model will allow for the use of dummy `Secrets` with GitOps that are replaced with real `Secret` values in the admission phase of a resource's lifecycle.
 
@@ -66,8 +51,7 @@ oc process -f thycotic.yaml \
 Approve the CSR and create a tls secret:
 
 ```
-kubectl certificate approve thycotic
-# oc adm certificate approve thycotic
+oc adm certificate approve thycotic
 
 oc wait --for=condition=approved csr/thycotic
 
@@ -91,7 +75,41 @@ oc process -f thycotic-webhook.yaml \
     | oc apply -f -
 ```
 
-#### Creating a secret
+## Using Cert Manager
+
+### Install Cert Manager with OLM
+
+```
+oc apply -f cert-manager/install.yaml
+```
+
+### Create the ClusterIssuer and Certificate
+
+This will create a self-signed `ClusterIssuer` and a `Certificate` in the namespace of the injector service:
+
+```
+oc apply -f cert-manager/certificate.yaml
+```
+
+### Update the Deployment to use the Certificate Secret
+
+Edit the Deployment to use the `tss-cert` secret in the injector namespace.
+
+_TODO: add patch command_
+
+```
+oc patch ...
+```
+
+### Apply MutatingWebhookConfiguration
+
+This will apply the webhook using a cert-manager annotation to inject the CA:
+
+```
+oc apply -f cert-manager/thycotic-webhook.yaml
+```
+
+### Creating a secret
 
 ```yaml
 kind: Secret
@@ -108,7 +126,7 @@ data:
   placeholder: cGxhY2Vob2xkZXI=
 ```
 
-##### Available Secret Annotations
+#### Available Secret Annotations
 
 - `tss.thycotic.com/role` - identifies the role that should be used, as per the roles.json entry.
 - `tss.thycotic.com/set-secret` - adds missing fields without overwriting or removing existing fields.
@@ -117,7 +135,7 @@ data:
 
 _Note: Only one of these should be specified on any given k8s Secret, however, if more than one are defined then the order of precedence is setAnnotation then addAnnotation then updateAnnotation._
 
-#### References
+### References
 
 The following guide was used from Thycotic with modifications:
 - https://docs.thycotic.com/ssi/1.0.0/ibm/redhat/openshift/secretserver.md

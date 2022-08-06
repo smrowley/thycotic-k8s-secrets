@@ -1,0 +1,39 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: thycotic-webhook
+objects:
+- apiVersion: admissionregistration.k8s.io/v1
+  kind: MutatingWebhookConfiguration
+  metadata:
+    name: ${SERVICE}
+    labels:
+      app: tss
+    annotations:
+      cert-manager.io/inject-ca-from: ${NAMESPACE}/tss-certificate
+  webhooks:
+    - name: tss.thycotic.com
+      rules:
+        - apiGroups: ["*"]
+          apiVersions: ["*"]
+          operations: ["CREATE", "UPDATE"]
+          resources: ["secrets"]
+      clientConfig:
+        service:
+          namespace: ${NAMESPACE}
+          name: ${SERVICE}
+          path: "/inject"
+          port: 8543
+      admissionReviewVersions: ["v1","v1beta1"]
+      sideEffects: None
+      timeoutSeconds: 5
+      objectSelector:
+        matchLabels:
+          injector: thycotic
+parameters:
+- description: Service name for the thycotic injector deployment for the mutating webhook
+  name: SERVICE
+  required: true
+- description: Namespace name for the injector deployment for the mutating webhook
+  name: NAMESPACE
+  required: true

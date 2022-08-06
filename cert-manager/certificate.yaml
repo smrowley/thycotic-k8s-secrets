@@ -1,0 +1,49 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: cert-manager-cert
+objects:
+- apiVersion: cert-manager.io/v1
+  kind: ClusterIssuer
+  metadata:
+    name: selfsigned-issuer
+  spec:
+    selfSigned: {}
+- apiVersion: cert-manager.io/v1
+  kind: Certificate
+  metadata:
+    name: tss-certificate
+    namespace: ${NAMESPACE}
+  spec:
+    secretName: tss-cert
+    privateKey:
+      rotationPolicy: Always
+      algorithm: RSA
+      encoding: PKCS1
+      size: 4096
+    duration: 8760h # 1 Year
+    renewBefore: 2208h #9 months
+    subject:
+      organizations:
+        - ${NAMESPACE}
+    commonName: ${NAMESPACE}
+    isCA: false
+    usages:
+      - server auth
+      - client auth
+    dnsNames:
+      - ${SERVICE}
+      - ${SERVICE}.${NAMESPACE}
+      - ${SERVICE}.${NAMESPACE}.svc
+      - ${SERVICE}.${NAMESPACE}.svc.cluster
+      - ${SERVICE}.${NAMESPACE}.svc.cluster.local
+    issuerRef:
+      name: selfsigned-issuer
+      kind: ClusterIssuer
+parameters:
+- description: Service name for the thycotic injector deployment for the mutating webhook
+  name: SERVICE
+  required: true
+- description: Namespace name for the injector deployment for the mutating webhook
+  name: NAMESPACE
+  required: true
