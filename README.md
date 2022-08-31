@@ -88,17 +88,10 @@ oc apply -f cert-manager/install.yaml
 This will create a self-signed `ClusterIssuer` and a `Certificate` in the namespace of the injector service:
 
 ```
-oc apply -f cert-manager/certificate.yaml
-```
-
-### Update the Deployment to use the Certificate Secret
-
-Edit the Deployment to use the `tss-cert` secret in the injector namespace.
-
-_TODO: add patch command_
-
-```
-oc patch ...
+oc process -f cert-manager/certificate.yaml \
+    SERVICE=$SERVICE \
+    NAMESPACE=$NAMESPACE \
+    | oc apply -f -
 ```
 
 ### Apply MutatingWebhookConfiguration
@@ -106,10 +99,15 @@ oc patch ...
 This will apply the webhook using a cert-manager annotation to inject the CA:
 
 ```
-oc apply -f cert-manager/thycotic-webhook.yaml
+oc process -f cert-manager/thycotic-webhook.yaml \
+    SERVICE=$SERVICE \
+    NAMESPACE=$NAMESPACE \
+    | oc apply -f -
 ```
 
-### Creating a secret
+# Creating a secret
+
+The secret must have a `data` field, so it's best to put a placeholder value. This value will be replaced by the Thycotic webhook.
 
 ```yaml
 kind: Secret
@@ -126,7 +124,7 @@ data:
   placeholder: cGxhY2Vob2xkZXI=
 ```
 
-#### Available Secret Annotations
+# Available Secret Annotations
 
 - `tss.thycotic.com/role` - identifies the role that should be used, as per the roles.json entry.
 - `tss.thycotic.com/set-secret` - adds missing fields without overwriting or removing existing fields.
@@ -135,10 +133,11 @@ data:
 
 _Note: Only one of these should be specified on any given k8s Secret, however, if more than one are defined then the order of precedence is setAnnotation then addAnnotation then updateAnnotation._
 
-### References
+# References
 
 The following guide was used from Thycotic with modifications:
 - https://docs.thycotic.com/ssi/1.0.0/ibm/redhat/openshift/secretserver.md
+- https://github.com/thycotic/tss-k8s
 
 An excellent resource for describing configurations using Mutating Admission Webhooks:
 - https://medium.com/ibm-cloud/diving-into-kubernetes-mutatingadmissionwebhook-6ef3c5695f74
