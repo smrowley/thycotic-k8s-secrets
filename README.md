@@ -105,6 +105,27 @@ oc process -f cert-manager/thycotic-webhook.yaml \
     | oc apply -f -
 ```
 
+### Updating the Deployment
+
+When creating the certificate, a secret is created in the same namespace:
+
+```yaml
+  spec:
+    secretName: tss-cert
+```
+
+You can simply scale the deployment or delete the pods to have new webhook pods started with the secret mounted:
+
+```
+oc delete pod -n $NAMESPACE -l app=$SERVICE
+```
+
+#### Reloader Operator
+
+Alternatively, you can use an operator to reload the deployment pods when the secret is updated:
+
+https://github.com/trevorbox/reloader-operator
+
 # Creating a secret
 
 The secret must have a `data` field, so it's best to put a placeholder value. This value will be replaced by the Thycotic webhook.
